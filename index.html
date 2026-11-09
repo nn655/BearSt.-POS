@@ -192,7 +192,7 @@ details summary{cursor:pointer;color:var(--muted);margin-top:12px;font-size:13px
 <script>
 /* ---------- Storage & seed ---------- */
 const LS = 'cafe-pos.v16';
-const APP_VERSION = '2026-11-09.1';
+const APP_VERSION = '2026-11-09.2';
 const uid = () => Math.random().toString(36).slice(2, 10);
 const c = n => Math.round(n * 100); // to cents
 
@@ -213,7 +213,7 @@ function seed() {
       // Hot Coffee
       ...[['Espresso', 4.50], ['Doppio', 5.00], ['Americano', 5.50],
           ['Espresso Macchiato', 5.00, true], ['Doppio Macchiato', 5.50, true], ['Cappuccino', 6.00, true],
-          ['Flat White', 6.50, true], ['Latte', 7.50, true], ['Extra Shot', 2.00]]
+          ['Flat White', 6.50, true], ['Latte', 7.50, true], ['Pumpkin Spice Latte', 9.50, true], ['Extra Shot', 2.00]]
         .map(([name, price, milk]) => ({ id: uid(), name, price: c(price), catId: cats[1].id, milk: !!milk })),
       // Iced Coffee
       ...[['Iced Americano', 5.50], ['Iced Cappuccino', 6.00, true], ['Iced Flat White', 6.50, true],
@@ -290,6 +290,13 @@ function migrate() {
     set('Still Water', '#9fd3f5'); set('Sparkling Water', '#1f4e8c');
   });
   once('staff-drink', () => { if (!S.discounts.some(x => x.name === 'Staff Drink')) S.discounts.push(staffDrink(S.categories)); });
+  once('pumpkin-spice-latte', () => {
+    const k = S.categories.find(x => x.name === 'Hot Coffee');
+    if (!k || S.items.some(i => i.catId === k.id && i.name === 'Pumpkin Spice Latte')) return;
+    const item = { id: uid(), name: 'Pumpkin Spice Latte', price: c(9.50), catId: k.id, milk: true };
+    const after = S.items.findIndex(i => i.catId === k.id && i.name === 'Latte');
+    if (after >= 0) S.items.splice(after + 1, 0, item); else S.items.push(item);
+  });
   save();
 }
 // Dark text on light tiles, white text on dark tiles
