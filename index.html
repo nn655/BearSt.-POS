@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- iPad: run full-screen when added to the Home Screen -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POS">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0c0e12">
+<title>Café POS</title>
+<style>
+:root{
+  --bg:#12151a;--panel:#1b1f26;--panel2:#252a33;--panel3:#2e3440;--line:#343b48;
+  --addon:#9fd3f5;--text:#e9ecf1;--muted:#8d95a3;--accent:#3b82f6;--green:#22a861;--red:#e5484d;--disc:#f0a43a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+/* Touch: no double-tap zoom, no accidental text selection or callouts */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
+input{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:var(--panel3);border-radius:8px;padding:10px 14px;user-select:none}
+button:active{filter:brightness(1.25)}
+button:disabled{opacity:.35;cursor:default}
+input,select{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+input[type=color]{padding:2px;width:44px;height:36px}
+header{height:calc(56px + env(safe-area-inset-top));display:flex;align-items:center;gap:8px;padding:env(safe-area-inset-top) 14px 0;background:#0c0e12;border-bottom:1px solid var(--line)}
+header .brand{font-weight:700;margin-right:12px;white-space:nowrap}
+header nav{display:flex;gap:4px}
+header nav button{background:transparent;color:var(--muted);padding:8px 14px}
+header nav button.on{background:var(--panel2);color:var(--text)}
+header .clock{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+main{height:calc(100vh - 56px - env(safe-area-inset-top));height:calc(100dvh - 56px - env(safe-area-inset-top))}
+
+/* Register */
+.reg{display:grid;grid-template-columns:380px 1fr;height:100%}
+.ticket{display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);min-height:0}
+.tk-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600}
+.tk-head span{color:var(--muted);font-weight:400;font-size:13px}
+.tk-lines{flex:1;overflow:auto}
+.empty{color:var(--muted);text-align:center;padding:48px 20px}
+.line{padding:10px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.line.sel{background:#1f3352;box-shadow:inset 4px 0 0 var(--accent)}
+.l-main{display:flex;gap:10px}
+.l-qty{min-width:22px;color:var(--muted);font-variant-numeric:tabular-nums}
+.l-name{flex:1}
+.l-price{font-variant-numeric:tabular-nums}
+.l-mod{margin-left:32px;color:var(--muted);font-size:13px}
+.l-disc{margin-left:32px;color:var(--disc);font-size:13px}
+.tk-tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px 10px;border-top:1px solid var(--line);background:var(--panel2)}
+.tk-tools button{padding:10px 4px;font-size:13px}
+.tk-totals{padding:10px 16px;border-top:1px solid var(--line)}
+.tk-totals .row{display:flex;justify-content:space-between;padding:2px 0;color:var(--muted);font-variant-numeric:tabular-nums}
+.tk-totals .row.d{color:var(--disc)}
+.tk-totals .row.total{color:var(--text);font-size:20px;font-weight:700;padding-top:6px}
+.tk-btns{display:grid;grid-template-columns:1fr 1fr 1fr 1.7fr;gap:6px;padding:10px}
+.tk-btns button{padding:12px 6px;font-weight:600;font-size:14px;line-height:1.2;min-height:56px}
+.btn-faulty{background:#4a1f22;color:#ffb3b5}
+.l-faulty{margin-left:32px;color:#ff9a9d;font-size:13px}
+textarea.full{width:100%;min-height:70px;resize:vertical;font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{padding:8px 12px;font-size:13px;background:var(--panel2)}
+.btn-pay{background:var(--green)}
+.btn-disc{background:#5a4220;color:#ffd391}
+.menu{display:flex;flex-direction:column;min-height:0;min-width:0}
+.cats{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-bottom:1px solid var(--line);background:var(--panel)}
+.cats button{flex:0 0 auto;padding:12px 18px;background:var(--panel2);border-left:6px solid var(--c);font-weight:600}
+.cats button.on{background:var(--c);color:#fff}
+.catgrid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(96px,1fr);gap:12px}
+.cattile{background:var(--c);border-radius:12px;font-size:22px;font-weight:700;text-align:left;padding:18px;display:flex;flex-direction:column;justify-content:space-between}
+.cattile small{font-size:13px;font-weight:500;opacity:.8}
+.catbar{display:flex;align-items:center;gap:14px;padding:10px 12px;background:var(--panel);border-bottom:4px solid var(--c)}
+.catbar button{padding:12px 18px;font-weight:600}
+.catbar b{font-size:18px}
+.grid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));grid-auto-rows:104px;gap:10px;align-content:start}
+.tile.addon{color:#0b2a3d;grid-row-end:span 1}
+.tile.addon::before{content:"ADD-ON";position:absolute;bottom:10px;right:8px;font-size:10px;background:rgba(11,42,61,.15);padding:2px 6px;border-radius:10px}
+.tile{background:var(--c);color:#fff;display:flex;flex-direction:column;justify-content:space-between;text-align:left;padding:12px;border-radius:10px;font-weight:600;position:relative}
+.tile small{font-weight:500;opacity:.9;font-variant-numeric:tabular-nums}
+.tile .tag{position:absolute;bottom:10px;right:8px;font-size:10px;background:rgba(0,0,0,.28);padding:2px 6px;border-radius:10px;font-weight:600}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(560px,100%);max-height:92vh;overflow:auto;padding:20px}
+.modal h2{margin:0 0 14px;font-size:20px}
+.modal h3{margin:18px 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.seg{display:flex;background:var(--panel2);border-radius:8px;padding:3px;gap:3px}
+.seg button{flex:1;background:transparent;padding:9px}
+.seg button.on{background:var(--accent)}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.opts button{padding:16px 12px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.opts button span{color:var(--muted);font-size:13px}
+.opts button.cur{outline:2px solid var(--accent)}
+.preset{background:#3d2e17}
+.preset span{color:#ffd391 !important}
+.display{font-size:30px;font-weight:700;text-align:right;background:var(--panel2);border-radius:8px;padding:10px 14px;margin:10px 0;font-variant-numeric:tabular-nums}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.keypad button{padding:14px;font-size:18px}
+.mrow{display:flex;gap:8px;margin-top:16px}
+.mrow button{flex:1;padding:14px;font-weight:600}
+.primary{background:var(--accent)}
+.danger{background:#4a1f22;color:#ffb3b5}
+.big{font-size:34px;font-weight:700;text-align:center;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);text-align:center}
+.full{width:100%}
+
+/* Reports & Manage */
+.page{height:100%;overflow:auto;padding:20px;max-width:1200px;margin:0 auto}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.toolbar h1{font-size:22px;margin:0 12px 0 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi div{color:var(--muted);font-size:13px}
+.kpi b{display:block;font-size:24px;margin-top:4px;font-variant-numeric:tabular-nums}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0;overflow-x:auto}
+.card h2{font-size:15px;margin:0 0 10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.void td{color:var(--muted);text-decoration:line-through}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.muted{color:var(--muted)}
+.card td input,.card td select{width:100%}
+.card td.w{width:110px}
+.sm{padding:6px 10px;font-size:13px}
+/* Combo box picker */
+.cb-status{background:var(--panel2);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-weight:600;color:var(--disc)}
+.cb-status.full{color:#7be0a6}
+.cb-list{display:flex;flex-direction:column;gap:6px}
+.cb-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:6px}
+.cb-row.has{box-shadow:inset 4px 0 0 var(--accent)}
+.cb-btn{width:52px;height:52px;font-size:26px;padding:0;flex:0 0 auto;background:var(--panel3)}
+.cb-name{flex:1;font-weight:600;min-width:0}
+.cb-name span{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.cb-n{min-width:28px;text-align:center;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.cb-row:not(.has) .cb-n{color:var(--muted)}
+.cb-in{width:72px;text-align:center;font-size:22px;font-weight:700;padding:8px 4px}
+.eod{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px;max-width:640px}
+.eod .sign{display:flex;gap:8px;align-items:center}
+.eod .sign input{flex:1;font-size:17px;padding:12px}
+.cattile.eodtile{background:#2a2f3a;color:#e9ecf1;border:2px dashed #5a6273}
+.signed{color:var(--muted);font-size:12px}
+/* Hourly revenue chart */
+.hchart{display:grid;grid-template-columns:auto 1fr;gap:0 8px;margin-top:4px}
+.hy{position:relative;height:200px;font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;min-width:68px;white-space:nowrap}
+.hy span{position:absolute;right:0;transform:translateY(50%)}
+.hplot{position:relative;height:200px;display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid var(--line)}
+.hgrid{position:absolute;left:0;right:0;border-top:1px dashed #2a303b;pointer-events:none}
+.hcol{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;cursor:default;min-width:0}
+.hbar{width:min(70%,36px);background:var(--accent);border-radius:4px 4px 0 0;min-height:0}
+.hcol:hover .hbar{filter:brightness(1.3)}
+.hcol:hover{background:rgba(255,255,255,.04)}
+.hpeak{font-size:11px;color:var(--text);margin-bottom:3px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.htip{display:none;position:absolute;bottom:calc(100% - 40px);left:50%;transform:translateX(-50%);background:#0c0e12;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;white-space:nowrap;z-index:2;pointer-events:none}
+.htip b{display:block;font-size:14px}
+.hcol:hover .htip{display:block}
+.hx{grid-column:2;display:flex;gap:2px;font-size:11px;color:var(--muted);margin-top:4px}
+.hx span{flex:1;text-align:center;min-width:0}
+details summary{cursor:pointer;color:var(--muted);margin-top:12px;font-size:13px}
+.upd{position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top));z-index:30;display:flex;gap:14px;align-items:center;background:#1f3352;border:1px solid var(--accent);padding:10px 12px 10px 18px;border-radius:12px;box-shadow:0 8px 30px #0008;font-weight:600}
+.upd button{padding:12px 18px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel3);padding:10px 18px;border-radius:8px;z-index:20}
+
+@media (max-width:820px){
+  .reg{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+  .ticket{border-right:0;border-bottom:1px solid var(--line);order:2}
+  .menu{order:1}
+  header .brand{display:none}
+  .cards{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" id="brand"></div>
+  <nav>
+    <button data-v="register" onclick="go('register')">Register</button>
+    <button data-v="reports" onclick="go('reports')">Daily sales</button>
+    <button data-v="manage" onclick="go('manage')">Manage</button>
+  </nav>
+  <div class="clock" id="clock"></div>
+</header>
+<main id="app"></main>
+<div id="modal"></div>
+
+<script>
+/* ---------- Storage & seed ---------- */
+const LS = 'cafe-pos.v16';
+const APP_VERSION = '2026-11-09.1';
+const uid = () => Math.random().toString(36).slice(2, 10);
+const c = n => Math.round(n * 100); // to cents
+
+function seed() {
+  const cat = (name, color) => ({ id: uid(), name, color });
+  const cats = [cat('Cookies', '#a37a2c'), cat('Hot Coffee', '#8a5a3c'), cat('Iced Coffee', '#3f7cab'),
+                cat('Hot Chocolate', '#6e3b2a'), cat('Iced Chocolate', '#6b5a9e'),
+                cat('Hot Matcha', '#4d8a3a'), cat('Iced Matcha', '#2f8f7c'),
+                cat('Soft Drinks', '#c0622e')];
+  return {
+    settings: { name: 'My Café', currency: 'CHF', vatRate: 2.6 },
+    categories: cats,
+    items: [
+      ...['Roasted Tahini Chocolate Chip', 'Triple Chocolate Fudge', 'Milk Chocolate Chip Crunch',
+          'Pistachio White Chocolate Raspberry', 'Dark Chocolate Walnut Oat', 'Miso Salted Caramel', 'Monthly Special']
+        .map(name => ({ id: uid(), name, price: c(7.50), catId: cats[0].id, milk: false })),
+      { id: uid(), name: 'Combo Box of 6', price: c(45), catId: cats[0].id, milk: false, combo: 6 },
+      // Hot Coffee
+      ...[['Espresso', 4.50], ['Doppio', 5.00], ['Americano', 5.50],
+          ['Espresso Macchiato', 5.00, true], ['Doppio Macchiato', 5.50, true], ['Cappuccino', 6.00, true],
+          ['Flat White', 6.50, true], ['Latte', 7.50, true], ['Extra Shot', 2.00]]
+        .map(([name, price, milk]) => ({ id: uid(), name, price: c(price), catId: cats[1].id, milk: !!milk })),
+      // Iced Coffee
+      ...[['Iced Americano', 5.50], ['Iced Cappuccino', 6.00, true], ['Iced Flat White', 6.50, true],
+          ['Iced Latte', 7.50, true], ['Extra Shot', 2.00]]
+        .map(([name, price, milk]) => ({ id: uid(), name, price: c(price), catId: cats[2].id, milk: !!milk })),
+      // Hot Chocolate (drink + separate add-on buttons)
+      { id: uid(), name: 'Maracaibo 65%', price: c(9.00), catId: cats[3].id, milk: false,
+        options: [{ name: 'Plain', price: 0 }, { name: 'Marshmallow', price: c(2) }, { name: 'Matcha Whip', price: c(2) }, { name: "Pop N' Choc", price: c(2) }] },
+      // Iced Chocolate
+      { id: uid(), name: 'Iced Maracaibo 65%', price: c(9.00), catId: cats[4].id, milk: false,
+        options: [{ name: 'Plain', price: 0 }, { name: 'Matcha Whip', price: c(2) }, { name: "Pop N' Choc", price: c(2) }] },
+      // Hot Matcha
+      ...[['Matcha Tea', 6.50], ['Matcha Latte', 7.50, true], ['Orange Blossom Matcha', 9.50, true],
+          ['Salty Vanilla Matcha', 9.50, true], ['Pumpkin Spice Matcha', 9.50, true]]
+        .map(([name, price, milk]) => ({ id: uid(), name, price: c(price), catId: cats[5].id, milk: !!milk })),
+      // Iced Matcha (same as Hot Matcha)
+      ...[['Iced Matcha Tea', 6.50], ['Iced Matcha Latte', 7.50, true], ['Iced Orange Blossom Matcha', 9.50, true],
+          ['Iced Salty Vanilla Matcha', 9.50, true], ['Iced Pumpkin Spice Matcha', 9.50, true]]
+        .map(([name, price, milk]) => ({ id: uid(), name, price: c(price), catId: cats[6].id, milk: !!milk })),
+      // Soft Drinks
+      ...[['Still Water', 3.00, '#9fd3f5'], ['Sparkling Water', 3.00, '#1f4e8c']]
+        .map(([name, price, color]) => ({ id: uid(), name, price: c(price), catId: cats[7].id, milk: false, color })),
+    ],
+    milks: [
+      { id: uid(), name: 'Regular Milk', price: 0 }, { id: uid(), name: 'Oat Milk', price: 0 },
+      { id: uid(), name: 'Lactose Free Milk', price: 0 }, { id: uid(), name: 'Sproud Milk', price: 0 },
+    ],
+    discounts: defaultDiscounts(cats),
+    sales: [],
+    nextNo: 1,
+  };
+}
+function load() { try { const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function save() { try { S.openOrder = order; localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
+
+let S = load() || seed();
+migrate();
+
+// Quick discounts. `cats` limits a discount to items in those categories.
+function defaultDiscounts(cats) {
+  const coffeeMatcha = cats.filter(k => ['Hot Coffee', 'Iced Coffee', 'Hot Matcha', 'Iced Matcha'].includes(k.name)).map(k => k.id);
+  return [
+    { id: uid(), name: 'Globus Staff', type: 'pct', value: 20 },
+    { id: uid(), name: 'Loopy Loyalty', type: 'pct', value: 100, cats: coffeeMatcha },
+    // One single cookie (not a combo box), one per order
+    { id: uid(), name: 'One Year Free Cookie', type: 'pct', value: 100, cats: cats.filter(k => k.name === 'Cookies').map(k => k.id), noCombo: true, maxUnits: 1, oncePerDay: true },
+    { id: uid(), name: 'Box Refill', type: 'pct', value: 100, cats: coffeeMatcha },
+    staffDrink(cats),
+  ];
+}
+// Staff drink: 100% off any drink (every category except Cookies)
+function staffDrink(cats) { return { id: uid(), name: 'Staff Drink', type: 'pct', value: 100, cats: cats.filter(k => k.name !== 'Cookies').map(k => k.id) }; }
+// One-time updates applied to existing data, so recorded sales are kept
+function migrate() {
+  S.applied = S.applied || [];
+  S.eod = S.eod || []; // end-of-day leftover counts
+  const once = (key, fn) => { if (!S.applied.includes(key)) { fn(); S.applied.push(key); } };
+  once('cat-order-pairs', () => {
+    // Two-column start page: Cookies | Soft Drinks, Hot Coffee | Iced Coffee, ...
+    const want = ['Cookies', 'Soft Drinks', 'Hot Coffee', 'Iced Coffee', 'Hot Chocolate', 'Iced Chocolate', 'Hot Matcha', 'Iced Matcha'];
+    const pos = k => { const i = want.indexOf(k.name); return i < 0 ? 99 : i; };
+    S.categories = S.categories.map((k, i) => [k, i]).sort((a, b) => pos(a[0]) - pos(b[0]) || a[1] - b[1]).map(x => x[0]);
+  });
+  once('discounts-v2', () => { S.discounts = defaultDiscounts(S.categories); });
+  once('free-cookie-daily', () => {
+    const d = S.discounts.find(x => x.name === 'One Year Free Cookie'); if (d) d.oncePerDay = true;
+  });
+  once('free-cookie-limit', () => {
+    const d = S.discounts.find(x => x.name === 'One Year Free Cookie'), k = S.categories.find(x => x.name === 'Cookies');
+    if (d && k) Object.assign(d, { cats: [k.id], noCombo: true, maxUnits: 1 });
+  });
+  once('water-colors', () => {
+    const set = (name, color) => { const it = S.items.find(i => i.name === name && !i.color); if (it) it.color = color; };
+    set('Still Water', '#9fd3f5'); set('Sparkling Water', '#1f4e8c');
+  });
+  once('staff-drink', () => { if (!S.discounts.some(x => x.name === 'Staff Drink')) S.discounts.push(staffDrink(S.categories)); });
+  save();
+}
+// Dark text on light tiles, white text on dark tiles
+function inkFor(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16); if (isNaN(n)) return '#fff';
+  const [r, g, b] = [n >> 16, (n >> 8) & 255, n & 255];
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#0b2a3d' : '#fff';
+}
+let order = S.openOrder || newOrder();
+let selLine = null, view = 'register', activeCat = null, repDate = dayKey(Date.now());
+
+function newOrder() { return { lines: [], discount: null, started: Date.now() }; }
+
+/* ---------- Helpers ---------- */
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+function fmt(cents) { const neg = cents < 0; const cur = S.settings.currency; return (neg ? '−' : '') + cur + (cur.length > 1 ? ' ' : '') + (Math.abs(cents) / 100).toFixed(2); }
+function dayKey(ts) { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function timeStr(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+function exVat(cents) { return Math.round(cents / (1 + (S.settings.vatRate || 0) / 100)); }
+function discLabel(d) { return (d.type === 'pct' ? `${+d.value}%` : `${fmt(d.value)} off`) + (d.maxUnits ? ` · ${d.maxUnits} per order` : ''); }
+function discAmt(d, base) { if (!d || base <= 0) return 0; return d.type === 'pct' ? Math.min(base, Math.round(base * d.value / 100 / 5) * 5) : Math.min(base, d.value); }
+function catOf(id) { return S.categories.find(x => x.id === id); }
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 1800); }
+
+function totals(o) {
+  const lines = o.lines.map(l => {
+    const unit = l.price + l.mods.reduce((a, m) => a + m.price, 0);
+    const gross = unit * l.qty;
+    // maxUnits: discount covers only that many units of the line (e.g. one free cookie)
+    const disc = discAmt(l.discount, l.discount?.maxUnits ? unit * Math.min(l.qty, l.discount.maxUnits) : gross);
+    return { gross, disc, net: gross - disc };
+  });
+  const gross = lines.reduce((a, x) => a + x.gross, 0);
+  const ld = lines.reduce((a, x) => a + x.disc, 0);
+  const sub = gross - ld;
+  const od = discAmt(o.discount, sub);
+  return { lines, gross, ld, sub, od, total: sub - od };
+}
+
+/* ---------- Navigation ---------- */
+function go(v) { view = v; selLine = null; render(); }
+function render() {
+  document.getElementById('brand').textContent = S.settings.name;
+  document.querySelectorAll('header nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  const app = document.getElementById('app');
+  app.innerHTML = view === 'register' ? renderRegister() : view === 'reports' ? renderReports() : renderManage();
+}
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }, 1000);
+
+/* ---------- Register ---------- */
+function renderRegister() {
+  if (activeCat && activeCat !== 'eod' && !catOf(activeCat)) activeCat = null;
+  const t = totals(order);
+  const sel = order.lines.find(l => l.uid === selLine);
+  const lines = order.lines.map((l, i) => {
+    const x = t.lines[i];
+    return `<div class="line ${selLine === l.uid ? 'sel' : ''}" onclick="selectLine('${l.uid}')">
+      <div class="l-main"><span class="l-qty">${l.qty}×</span><span class="l-name">${esc(l.name)}</span><span class="l-price">${fmt(x.gross)}</span></div>
+      ${l.mods.map(m => `<div class="l-mod">${esc(m.name)}${m.price ? ` +${fmt(m.price)}` : ''}</div>`).join('')}
+      ${l.discount?.faulty ? `<div class="l-faulty">⚠ Faulty${l.qty > 1 ? ` (${l.discount.maxUnits}×)` : ''}: ${esc(l.discount.reason)} · signed ${esc(l.discount.by)} ${fmt(-x.disc)}</div>`
+        : l.discount ? `<div class="l-disc">${esc(l.discount.name)} (${discLabel(l.discount)}) ${fmt(-x.disc)}</div>` : ''}
+    </div>`;
+  }).join('') || `<div class="empty">Tap an item to start an order</div>`;
+
+  const tools = sel ? `<div class="tk-tools">
+      <button onclick="qty(-1)">−</button><button onclick="qty(1)">+</button>
+      <button onclick="openOptions('${sel.uid}')" ${(it => it && (it.milk || it.combo || it.options?.length))(S.items.find(i => i.id === sel.itemId)) ? '' : 'disabled'}>Edit</button>
+      <button onclick="openDiscount('line')">Disc.</button>
+      <button class="danger" onclick="removeLine()">Delete</button></div>` : '';
+
+  // Start page: all categories as coloured tiles in two columns
+  const catGrid = `<div class="catgrid">${S.categories.map(k => `<button class="cattile" style="--c:${k.color};color:${inkFor(k.color)}" onclick="activeCat='${k.id}';render()">${esc(k.name)}<small>${S.items.filter(i => i.catId === k.id).length} items</small></button>`).join('')}
+    <button class="cattile eodtile" onclick="openEod()">End of day<small>${(e => e ? `Leftover cookies counted ${timeStr(e.ts)} · ${esc(e.name)}` : 'Count leftover cookies')(eodFor(dayKey(Date.now())))}</small></button></div>`;
+  if (!activeCat) return registerShell(t, lines, tools, catGrid);
+  if (activeCat === 'eod') return registerShell(t, lines, tools, renderEod());
+  const cat = catOf(activeCat);
+  // Regular items first, then add-ons on their own row in light blue
+  const inCat = S.items.filter(i => i.catId === activeCat);
+  const main = inCat.filter(i => !i.addon), addons = inCat.filter(i => i.addon);
+  const tiles = [...main, ...addons].map((i, k) =>
+    `<button class="tile ${i.addon ? 'addon' : ''}" style="--c:${i.addon ? 'var(--addon)' : i.color || cat.color};${!i.addon && i.color ? `color:${inkFor(i.color)};` : ''}${i.addon && k === main.length ? 'grid-column-start:1' : ''}" onclick="tapItem('${i.id}')">${i.combo ? `<span class="tag">PICK ${i.combo}</span>` : i.options?.length ? '<span class="tag">CHOOSE</span>' : i.milk ? '<span class="tag">MILK</span>' : ''}<span>${esc(i.name)}</span><small>${fmt(i.price)}</small></button>`).join('')
+    || `<div class="muted" style="grid-column:1/-1">No items in this category yet — add some under Manage.</div>`;
+  const itemsView = `<div class="catbar" style="--c:${cat.color}"><button onclick="activeCat=null;render()">‹ Categories</button><b>${esc(cat.name)}</b></div><div class="grid">${tiles}</div>`;
+  return registerShell(t, lines, tools, itemsView);
+}
+
+function registerShell(t, lines, tools, menuHtml) {
+  return `<div class="reg">
+    <section class="ticket">
+      <div class="tk-head">Order #${S.nextNo}<span>${order.lines.reduce((a, l) => a + l.qty, 0)} items</span></div>
+      <div class="tk-lines">${lines}</div>
+      ${tools}
+      <div class="tk-totals">
+        <div class="row"><span>Subtotal</span><span>${fmt(t.gross)}</span></div>
+        ${t.ld ? `<div class="row d"><span>Item discounts</span><span>${fmt(-t.ld)}</span></div>` : ''}
+        ${order.discount ? `<div class="row d"><span>${esc(order.discount.name)} (${discLabel(order.discount)})</span><span>${fmt(-t.od)}</span></div>` : ''}
+        <div class="row total"><span>Total</span><span>${fmt(t.total)}</span></div>
+      </div>
+      <div class="tk-btns">
+        <button class="btn-disc" onclick="openDiscount()" ${order.lines.length ? '' : 'disabled'}>Discount</button>
+        <button class="btn-faulty" onclick="openFaulty()" ${order.lines.length ? '' : 'disabled'}>Faulty product</button>
+        <button onclick="clearOrder()" ${order.lines.length ? '' : 'disabled'}>Clear</button>
+        <button class="btn-pay" onclick="recordSale()" ${order.lines.length ? '' : 'disabled'}>Record sale ${fmt(t.total)}</button>
+      </div>
+    </section>
+    <section class="menu">${menuHtml}</section>
+  </div>`;
+}
+
+function tapItem(id) {
+  const item = S.items.find(i => i.id === id);
+  if (item.combo) return openCombo(id, null);
+  if (item.options?.length) return openChoice(id, null);
+  if (item.milk && S.milks.length) return openMilk(id, null);
+  addLine(item, []);
+}
+function openOptions(lineUid) {
+  const l = order.lines.find(x => x.uid === lineUid), item = S.items.find(i => i.id === l.itemId);
+  if (item.combo) openCombo(item.id, lineUid);
+  else if (item.options?.length) openChoice(item.id, lineUid);
+  else if (item.milk) openMilk(null, lineUid);
+}
+
+/* ---------- Single-choice options (e.g. hot chocolate toppings) ---------- */
+function openChoice(itemId, lineUid) {
+  const item = S.items.find(i => i.id === itemId);
+  const line = lineUid && order.lines.find(l => l.uid === lineUid);
+  const cur = line?.mods.find(m => m.type === 'option')?.name;
+  openModal(`<h2>${esc(item.name)} · ${fmt(item.price)} — choose</h2>
+    <div class="opts">${item.options.map((o, k) => `<button class="${cur === o.name ? 'cur' : ''}" onclick="pickChoice('${item.id}','${lineUid || ''}',${k})"><b>${esc(o.name)}</b><span>${o.price ? '+' + fmt(o.price) : fmt(0)}</span></button>`).join('')}</div>
+    <div class="mrow"><button onclick="closeModal()">Cancel</button></div>`);
+}
+function pickChoice(itemId, lineUid, k) {
+  const item = S.items.find(i => i.id === itemId), o = item.options[k];
+  const mods = [{ type: 'option', name: o.name, price: o.price }];
+  closeModal();
+  if (lineUid) { const l = order.lines.find(x => x.uid === lineUid); l.mods = [...l.mods.filter(x => x.type !== 'option'), ...mods]; save(); render(); }
+  else addLine(item, mods);
+}
+
+/* ---------- Combo box (pick N flavours) ---------- */
+let CB = {};
+function comboChoices(item) { return S.items.filter(i => i.catId === item.catId && !i.combo); }
+function openCombo(itemId, lineUid) {
+  CB = { itemId, lineUid, counts: {} };
+  const line = lineUid && order.lines.find(l => l.uid === lineUid);
+  if (line) line.mods.filter(m => m.type === 'combo').forEach(m => { CB.counts[m.flavorId] = m.count; });
+  renderCombo();
+}
+function renderCombo() {
+  const item = S.items.find(i => i.id === CB.itemId), size = item.combo;
+  const chosen = Object.values(CB.counts).reduce((a, b) => a + b, 0), left = size - chosen;
+  openModal(`<h2>${esc(item.name)} · ${fmt(item.price)}</h2>
+    <div class="cb-status ${left ? '' : 'full'}">${chosen} of ${size} chosen${left ? ` — pick ${left} more` : ' — box is full'}</div>
+    <div class="cb-list">${comboChoices(item).map(f => { const n = CB.counts[f.id] || 0; return `<div class="cb-row ${n ? 'has' : ''}">
+      <button class="cb-btn" onclick="cbStep('${f.id}',-1)" ${n ? '' : 'disabled'} aria-label="Remove one ${esc(f.name)}">−</button>
+      <div class="cb-name">${esc(f.name)}<span>${fmt(f.price)} single</span></div>
+      <div class="cb-n">${n}</div>
+      <button class="cb-btn" onclick="cbStep('${f.id}',1)" ${left ? '' : 'disabled'} aria-label="Add one ${esc(f.name)}">+</button>
+    </div>`; }).join('')}</div>
+    <div class="mrow"><button onclick="closeModal()">Cancel</button>
+      ${chosen ? `<button onclick="CB.counts={};renderCombo()">Clear all</button>` : ''}
+      <button class="primary" ${left ? 'disabled' : ''} onclick="confirmCombo()">${CB.lineUid ? 'Update box' : 'Add box to order'}</button></div>`);
+}
+function cbStep(fid, d) {
+  const item = S.items.find(i => i.id === CB.itemId);
+  const chosen = Object.values(CB.counts).reduce((a, b) => a + b, 0);
+  const n = (CB.counts[fid] || 0) + d;
+  if (n < 0 || (d > 0 && chosen >= item.combo)) return;
+  if (n) CB.counts[fid] = n; else delete CB.counts[fid];
+  renderCombo();
+}
+function confirmCombo() {
+  const item = S.items.find(i => i.id === CB.itemId);
+  const mods = comboChoices(item).filter(f => CB.counts[f.id]).map(f => ({ type: 'combo', flavorId: f.id, flavor: f.name, count: CB.counts[f.id], name: `${CB.counts[f.id]}× ${f.name}`, price: 0 }));
+  closeModal();
+  if (CB.lineUid) { order.lines.find(l => l.uid === CB.lineUid).mods = mods; save(); render(); }
+  else addLine(item, mods);
+}
+function addLine(item, mods) {
+  const key = JSON.stringify(mods.map(m => m.name));
+  const same = order.lines.find(l => l.itemId === item.id && !l.discount && JSON.stringify(l.mods.map(m => m.name)) === key);
+  if (same) { same.qty++; selLine = same.uid; }
+  else { const l = { uid: uid(), itemId: item.id, name: item.name, price: item.price, catId: item.catId, qty: 1, mods, discount: null }; order.lines.push(l); selLine = l.uid; }
+  save(); render();
+  const el = document.querySelector('.line.sel'); if (el) el.scrollIntoView({ block: 'nearest' });
+}
+function selectLine(u) { selLine = selLine === u ? null : u; render(); }
+function qty(d) {
+  const l = order.lines.find(x => x.uid === selLine); if (!l) return;
+  l.qty += d; if (l.qty <= 0) { order.lines = order.lines.filter(x => x !== l); selLine = null; }
+  save(); render();
+}
+function removeLine() { order.lines = order.lines.filter(x => x.uid !== selLine); selLine = null; save(); render(); }
+function clearOrder() { if (!confirm('Clear the current order?')) return; order = newOrder(); selLine = null; activeCat = null; save(); render(); }
+
+/* ---------- Modal ---------- */
+function openModal(html) { document.getElementById('modal').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
+function closeModal() { document.getElementById('modal').innerHTML = ''; }
+
+/* ---------- Milk ---------- */
+function openMilk(itemId, lineUid) {
+  const line = lineUid && order.lines.find(l => l.uid === lineUid);
+  const item = S.items.find(i => i.id === (itemId || line.itemId));
+  const cur = line?.mods.find(m => m.type === 'milk')?.name;
+  openModal(`<h2>${esc(item.name)} — choose milk</h2>
+    <div class="opts">${S.milks.map(m => `<button class="${cur === m.name ? 'cur' : ''}" onclick="pickMilk('${item.id}','${lineUid || ''}','${m.id}')"><b>${esc(m.name)}</b><span>${m.price ? '+' + fmt(m.price) : 'No charge'}</span></button>`).join('')}</div>
+    <div class="mrow"><button onclick="closeModal()">Cancel</button></div>`);
+}
+function pickMilk(itemId, lineUid, milkId) {
+  const m = S.milks.find(x => x.id === milkId);
+  const mods = m ? [{ type: 'milk', name: m.name, price: m.price }] : [];
+  closeModal();
+  if (lineUid) { const l = order.lines.find(x => x.uid === lineUid); l.mods = [...l.mods.filter(x => x.type !== 'milk'), ...mods]; save(); render(); }
+  else addLine(S.items.find(i => i.id === itemId), mods);
+}
+
+/* ---------- Discounts ---------- */
+let D = {};
+function openDiscount(target) { D = { target: target || (selLine ? 'line' : 'order'), type: 'pct', input: '', reason: '' }; renderDiscount(); }
+function renderDiscount() {
+  const line = order.lines.find(l => l.uid === selLine);
+  if (!line) D.target = 'order';
+  const cur = D.target === 'line' ? line.discount : order.discount;
+  openModal(`<h2>Apply discount</h2>
+    <div class="seg">
+      <button class="${D.target === 'order' ? 'on' : ''}" onclick="D.target='order';renderDiscount()">Whole order</button>
+      <button class="${D.target === 'line' ? 'on' : ''}" ${line ? '' : 'disabled'} onclick="D.target='line';renderDiscount()">${line ? 'Item: ' + esc(line.name) : 'Select an item first'}</button>
+    </div>
+    ${cur ? `<p class="muted">Current: <b style="color:var(--disc)">${esc(cur.name)} (${discLabel(cur)})</b></p>` : ''}
+    <h3>Quick discounts</h3>
+    <div class="opts">${S.discounts.map(d => { const ok = discEligible(d, line); return `<button class="preset" ${ok ? '' : 'disabled'} onclick="applyDiscount(S.discounts.find(x=>x.id==='${d.id}'))"><b>${esc(d.name)}</b><span>${discLabel(d)}${d.cats?.length ? ' · ' + esc(catList(d.cats)) + ' only' : ''}${d.oncePerDay ? ((u => u ? ` · <b>used today ${timeStr(u.ts)}</b>` : ' · once per day')(usedToday(d.name))) : ''}</span></button>`; }).join('')}</div>
+    <h3>Custom discount</h3>
+    <div class="seg">
+      <button class="${D.type === 'pct' ? 'on' : ''}" onclick="D.type='pct';D.input='';renderDiscount()">Percent %</button>
+      <button class="${D.type === 'amt' ? 'on' : ''}" onclick="D.type='amt';D.input='';renderDiscount()">Amount ${esc(S.settings.currency)}</button>
+    </div>
+    <div class="display">${D.type === 'amt' ? esc(S.settings.currency) : ''}${D.input || '0'}${D.type === 'pct' ? '%' : ''}</div>
+    <div class="keypad">${['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(k => `<button onclick="kp('${k}')">${k}</button>`).join('')}</div>
+    <input class="full" style="margin-top:10px" placeholder="Reason (optional, e.g. Manager approval)" value="${esc(D.reason)}" oninput="D.reason=this.value">
+    <div class="mrow">
+      ${cur ? `<button class="danger" onclick="applyDiscount(null)">Remove discount</button>` : ''}
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" onclick="applyCustom()">Apply custom</button>
+    </div>`);
+}
+function kp(k) {
+  if (k === '⌫') D.input = D.input.slice(0, -1);
+  else if (k === '.') { if (!D.input.includes('.')) D.input = (D.input || '0') + '.'; }
+  else if (D.input.length < 7) { const parts = (D.input + k).split('.'); if (!parts[1] || parts[1].length <= 2) D.input += k; }
+  renderDiscount();
+}
+function applyCustom() {
+  const v = parseFloat(D.input);
+  if (!(v > 0)) return toast('Enter a discount value');
+  if (D.type === 'pct' && v > 100) return toast('Percentage cannot exceed 100%');
+  const d = D.type === 'pct' ? { type: 'pct', value: v } : { type: 'amt', value: c(v) };
+  d.name = D.reason.trim() || 'Custom';
+  d.custom = true;
+  applyDiscount(d);
+}
+function catList(ids) {
+  const names = ids.map(id => catOf(id)?.name).filter(Boolean);
+  const set = new Set(names);
+  if (['Hot Coffee', 'Iced Coffee', 'Hot Matcha', 'Iced Matcha'].every(n => set.has(n)) && set.size === 4) return 'Coffee & matcha';
+  return names.join(', ');
+}
+// Can this discount be used on the current target?
+function lineFits(d, l) {
+  if (d.cats?.length && !d.cats.includes(l.catId)) return false;
+  if (d.noCombo && S.items.find(i => i.id === l.itemId)?.combo) return false;
+  return true;
+}
+function isRestricted(d) { return !!(d && (d.cats?.length || d.noCombo || d.maxUnits)); }
+function restrictText(d) { return `${d.name} only applies to ${d.noCombo ? 'a single ' : ''}${catList(d.cats || []).toLowerCase() || 'item'}${d.noCombo ? ' (not a box)' : ''}`; }
+function discEligible(d, line) {
+  if (d.oncePerDay && usedToday(d.name)) return false;
+  if (!isRestricted(d)) return true;
+  if (D.target === 'line') return !!line && lineFits(d, line);
+  return order.lines.some(l => lineFits(d, l));
+}
+/* ---------- Once per day (One Year Free Cookie) ---------- */
+// Returns today's (non-voided) sale that already used this discount, if any
+function usedToday(discName) {
+  const today = dayKey(Date.now());
+  return S.sales.find(s => !s.voided && dayKey(s.ts) === today && s.lines.some(l => l.discName === discName)) || null;
+}
+
+function applyDiscount(d) {
+  if (d?.oncePerDay) { const u = usedToday(d.name); if (u) return toast(`${d.name} was already used today (sale #${u.no} at ${timeStr(u.ts)})`); }
+  const val = d ? { name: d.name, type: d.type, value: d.value, custom: !!d.custom, ...(d.maxUnits ? { maxUnits: d.maxUnits } : {}) } : null;
+  if (isRestricted(d) && D.target === 'order') {
+    // Restricted discount on the whole order: apply it to eligible items only
+    let lines = order.lines.filter(l => lineFits(d, l) && !l.discount?.faulty);
+    if (!lines.length) return toast(restrictText(d));
+    if (d.maxUnits) lines = lines.slice(0, 1);
+    order.lines.forEach(l => { if (d.maxUnits && l.discount?.name === d.name) l.discount = null; });
+    lines.forEach(l => { l.discount = { ...val }; });
+    toast(d.maxUnits ? `${d.name} applied to 1× ${lines[0].name}` : `${d.name} applied to ${lines.reduce((a, l) => a + l.qty, 0)} item(s)`);
+  } else if (D.target === 'line') {
+    const l = order.lines.find(l => l.uid === selLine);
+    if (d && isRestricted(d) && !lineFits(d, l)) return toast(restrictText(d));
+    // A once-per-order discount moves to this line instead of being used twice
+    if (d?.maxUnits) order.lines.forEach(x => { if (x !== l && x.discount?.name === d.name) x.discount = null; });
+    l.discount = val;
+  } else order.discount = val;
+  closeModal(); save(); render();
+}
+
+/* ---------- End of day: leftover cookies, signed ---------- */
+let E = {};
+function eodCookies() { const k = S.categories.find(x => x.name === 'Cookies'); return S.items.filter(i => k && i.catId === k.id && !i.combo); }
+// Latest count for a day (a recount replaces the earlier one)
+function eodFor(day) { return S.eod.filter(e => e.day === day).at(-1) || null; }
+function openEod() {
+  const prev = eodFor(dayKey(Date.now()));
+  E = { counts: prev ? Object.fromEntries(prev.counts.map(c => [c.itemId, c.qty])) : {}, name: '' };
+  activeCat = 'eod'; render();
+}
+function renderEod() {
+  const prev = eodFor(dayKey(Date.now()));
+  const total = Object.values(E.counts).reduce((a, b) => a + (b || 0), 0);
+  return `<div class="catbar" style="--c:#5a6273"><button onclick="activeCat=null;render()">‹ Categories</button><b>End of day · leftover cookies</b></div>
+  <div class="eod">
+    ${prev ? `<div class="cb-status">Already counted today at ${timeStr(prev.ts)} by ${esc(prev.name)}. Submitting again replaces that count.</div>` : `<p class="muted" style="margin:0">Enter how many of each cookie are left over. Tap the number to type it in.</p>`}
+    <div class="cb-list">${eodCookies().map(i => { const n = E.counts[i.id] || 0; return `<div class="cb-row ${n ? 'has' : ''}" id="eod-${i.id}">
+      <button class="cb-btn" onclick="eodStep('${i.id}',-1)" aria-label="One less ${esc(i.name)}">−</button>
+      <div class="cb-name">${esc(i.name)}</div>
+      <input class="cb-in" type="number" inputmode="numeric" min="0" value="${n}" onfocus="this.select()" oninput="eodSet('${i.id}',this.value)">
+      <button class="cb-btn" onclick="eodStep('${i.id}',1)" aria-label="One more ${esc(i.name)}">+</button>
+    </div>`; }).join('')}</div>
+    <div class="cb-status" id="eod-total" style="color:var(--text)">Total left over: ${total}</div>
+    <div class="sign"><input id="eod-name" placeholder="Your name (signature)" value="${esc(E.name)}" oninput="E.name=this.value" autocomplete="off"></div>
+    <div class="mrow" style="margin-top:0"><button onclick="activeCat=null;render()">Cancel</button>
+      <button class="primary" onclick="submitEod()">Submit end of day count</button></div>
+  </div>`;
+}
+function eodSet(id, v) {
+  const n = Math.max(0, Math.floor(+v || 0)); E.counts[id] = n;
+  document.getElementById('eod-' + id)?.classList.toggle('has', n > 0);
+  document.getElementById('eod-total').textContent = 'Total left over: ' + Object.values(E.counts).reduce((a, b) => a + (b || 0), 0);
+}
+function eodStep(id, d) {
+  const n = Math.max(0, (E.counts[id] || 0) + d);
+  const inp = document.querySelector(`#eod-${id} input`); if (inp) inp.value = n;
+  eodSet(id, n);
+}
+function submitEod() {
+  const name = (E.name || '').trim();
+  if (name.length < 2) { toast('Please sign with your name'); document.getElementById('eod-name')?.focus(); return; }
+  const counts = eodCookies().map(i => ({ itemId: i.id, name: i.name, qty: E.counts[i.id] || 0 }));
+  const total = counts.reduce((a, c) => a + c.qty, 0);
+  if (!confirm(`Submit ${total} leftover cookie(s), signed by ${name}?`)) return;
+  const now = Date.now();
+  S.eod.push({ id: uid(), ts: now, day: dayKey(now), name, counts, total });
+  activeCat = null; save(); render();
+  toast(`End of day saved · ${total} cookies left · signed ${name}`);
+}
+
+/* ---------- Faulty product (written off at 0, reason required) ---------- */
+let F = {};
+function openFaulty() {
+  const l = order.lines.find(x => x.uid === selLine) || (order.lines.length === 1 ? order.lines[0] : null);
+  F = { uid: l?.uid || null, units: l?.discount?.faulty ? l.discount.maxUnits : 1, reason: l?.discount?.faulty ? l.discount.reason : '', name: l?.discount?.faulty ? l.discount.by : '' };
+  renderFaulty();
+}
+function renderFaulty() {
+  const l = order.lines.find(x => x.uid === F.uid);
+  if (l) F.units = Math.min(Math.max(1, F.units), l.qty);
+  const chips = ['Wrong order', 'Spilled / dropped', 'Burnt / broken', 'Customer complaint', 'Bad milk / ingredient'];
+  openModal(`<h2>Faulty product</h2>
+    <p class="muted">The item is recorded but not charged. A reason is required.</p>
+    <h3>Which item?</h3>
+    <div class="opts">${order.lines.map(x => `<button class="${x.uid === F.uid ? 'cur' : ''}" onclick="F.uid='${x.uid}';F.units=1;renderFaulty()"><b>${x.qty}× ${esc(x.name)}</b><span>${esc(x.mods.map(m => m.name).join(', ')) || '&nbsp;'}</span></button>`).join('')}</div>
+    ${l && l.qty > 1 ? `<h3>How many are faulty?</h3>
+      <div class="seg" style="max-width:260px"><button onclick="F.units--;renderFaulty()">−</button><button class="on">${F.units} of ${l.qty}</button><button onclick="F.units++;renderFaulty()">+</button></div>` : ''}
+    <h3>Reason</h3>
+    <textarea class="full" id="faultyReason" placeholder="Why is the product faulty?" oninput="F.reason=this.value">${esc(F.reason)}</textarea>
+    <div class="chips">${chips.map(c => `<button onclick="F.reason=${esc(JSON.stringify(c))};document.getElementById('faultyReason').value=F.reason">${esc(c)}</button>`).join('')}</div>
+    <h3>Signed by</h3>
+    <input class="full" id="faultyName" placeholder="Your name (signature)" value="${esc(F.name)}" oninput="F.name=this.value" autocomplete="off">
+    <div class="mrow">
+      ${l?.discount?.faulty ? `<button class="danger" onclick="removeFaulty()">Remove faulty mark</button>` : ''}
+      <button onclick="closeModal()">Cancel</button>
+      <button class="primary" onclick="applyFaulty()">Mark as faulty</button>
+    </div>`);
+}
+function applyFaulty() {
+  const l = order.lines.find(x => x.uid === F.uid);
+  if (!l) return toast('Choose the faulty item first');
+  const reason = (F.reason || '').trim();
+  if (reason.length < 3) { toast('Please write a reason'); document.getElementById('faultyReason')?.focus(); return; }
+  const by = (F.name || '').trim();
+  if (by.length < 2) { toast('Please sign with your name'); document.getElementById('faultyName')?.focus(); return; }
+  l.discount = { name: 'Faulty product', type: 'pct', value: 100, faulty: true, reason, by, maxUnits: F.units };
+  selLine = l.uid; closeModal(); save(); render();
+  toast(`${F.units}× ${l.name} marked as faulty`);
+}
+function removeFaulty() {
+  const l = order.lines.find(x => x.uid === F.uid);
+  if (l) l.discount = null;
+  closeModal(); save(); render();
+}
+
+/* ---------- Record sale (tracking only, no payment) ---------- */
+function recordSale() {
+  const t = totals(order);
+  let left = t.od;
+  const lines = order.lines.map((l, i) => {
+    const x = t.lines[i];
+    const isLast = i === order.lines.length - 1;
+    const share = isLast ? left : (t.sub ? Math.round(t.od * x.net / t.sub) : 0);
+    left -= share;
+    return { name: l.name, itemId: l.itemId, catId: l.catId, catName: catOf(l.catId)?.name || '—', qty: l.qty,
+      mods: l.mods, gross: x.gross, disc: x.disc, discName: l.discount?.name || '', odShare: share, net: x.net - share,
+      ...(l.discount?.faulty ? { faultyQty: l.discount.maxUnits, faultyReason: l.discount.reason, faultyBy: l.discount.by } : {}) };
+  });
+  const sale = { id: uid(), no: S.nextNo++, ts: Date.now(), lines, gross: t.gross, lineDisc: t.ld, orderDisc: t.od,
+    orderDiscName: order.discount?.name || '', total: t.total, voided: false };
+  S.sales.push(sale);
+  order = newOrder(); selLine = null; activeCat = null; save(); render();
+  toast(`Sale #${sale.no} recorded · ${fmt(sale.total)}`);
+}
+
+/* ---------- Daily sales ---------- */
+function shiftDay(n) { const d = new Date(repDate + 'T12:00'); d.setDate(d.getDate() + n); repDate = dayKey(d); render(); }
+function daySales() { return S.sales.filter(s => dayKey(s.ts) === repDate); }
+function renderReports() {
+  const all = daySales(), ok = all.filter(s => !s.voided);
+  const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
+  const faulty = ok.flatMap(s => s.lines.filter(l => l.faultyReason).map(l => ({ s, l })));
+  const faultyAmt = sum(faulty, f => f.l.disc);
+  const gross = sum(ok, s => s.gross), disc = sum(ok, s => s.lineDisc + s.orderDisc) - faultyAmt, net = sum(ok, s => s.total);
+  const itemsSold = sum(ok, s => sum(s.lines, l => l.qty));
+  const byCat = {}, byItem = {}, byMilk = {}, byDisc = {}, byFlavor = {};
+  const flavorIds = new Set(S.items.filter(i => i.combo).flatMap(comboChoices).map(i => i.id));
+  const addFlavor = (name, k, n) => { byFlavor[name] = byFlavor[name] || { single: 0, box: 0, total: 0 }; byFlavor[name][k] += n; byFlavor[name].total += n; };
+  ok.forEach(s => {
+    if (s.orderDisc) { const k = s.orderDiscName + ' (order)'; byDisc[k] = byDisc[k] || { n: 0, amt: 0 }; byDisc[k].n++; byDisc[k].amt += s.orderDisc; }
+    s.lines.forEach(l => {
+      const ck = l.catName; byCat[ck] = byCat[ck] || { qty: 0, gross: 0, disc: 0, net: 0, catId: l.catId };
+      byCat[ck].qty += l.qty; byCat[ck].gross += l.gross; byCat[ck].disc += l.disc + l.odShare; byCat[ck].net += l.net;
+      const ik = l.name + ' · ' + l.catName; byItem[ik] = byItem[ik] || { qty: 0, gross: 0, net: 0, cat: l.catName };
+      byItem[ik].qty += l.qty; byItem[ik].gross += l.gross; byItem[ik].net += l.net;
+      l.mods.filter(m => m.type === 'milk' || m.type === 'option').forEach(m => { byMilk[m.name] = byMilk[m.name] || { qty: 0, amt: 0 }; byMilk[m.name].qty += l.qty; byMilk[m.name].amt += m.price * l.qty; });
+      if (flavorIds.has(l.itemId)) addFlavor(l.name, 'single', l.qty);
+      l.mods.filter(m => m.type === 'combo').forEach(m => addFlavor(m.flavor, 'box', m.count * l.qty));
+      if (l.disc && !l.faultyReason) { const k = l.discName + ' (item)'; byDisc[k] = byDisc[k] || { n: 0, amt: 0 }; byDisc[k].n++; byDisc[k].amt += l.disc; }
+    });
+  });
+  const rows = (obj, fn, empty) => { const e = Object.entries(obj); return e.length ? e.map(fn).join('') : `<tr><td colspan="9" class="muted">${empty}</td></tr>`; };
+  const sortBy = (obj, k) => Object.fromEntries(Object.entries(obj).sort((a, b) => b[1][k] - a[1][k]));
+  const isToday = repDate === dayKey(Date.now());
+
+  // Revenue by hour
+  const hours = Array.from({ length: 24 }, () => ({ rev: 0, n: 0, items: 0 }));
+  ok.forEach(s => { const h = hours[new Date(s.ts).getHours()]; h.rev += s.total; h.n++; h.items += sum(s.lines, l => l.qty); });
+  const active = hours.map((h, i) => h.n ? i : -1).filter(i => i >= 0);
+  const hFrom = Math.min(7, active[0] ?? 7), hTo = Math.max(18, active.at(-1) ?? 18);
+  const span = hours.slice(hFrom, hTo + 1).map((h, k) => ({ ...h, hour: hFrom + k }));
+  const maxRev = Math.max(...span.map(h => h.rev), 0);
+  const niceMax = (() => { if (!maxRev) return 1000; const p = Math.pow(10, Math.floor(Math.log10(maxRev))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(v => v >= maxRev); })();
+  const peak = span.reduce((a, h) => h.rev > (a?.rev || 0) ? h : a, null);
+  const hl = h => `${String(h).padStart(2, '0')}:00`;
+  const hourChart = `<div class="hchart">
+      <div class="hy">${[0, .5, 1].map(f => `<span style="bottom:${f * 100}%">${fmt(Math.round(niceMax * f)).replace(/\.00$/, '')}</span>`).join('')}</div>
+      <div class="hplot">${[.5, 1].map(f => `<div class="hgrid" style="bottom:${f * 100}%"></div>`).join('')}
+        ${span.map(h => `<div class="hcol">
+          ${peak && h === peak ? `<div class="hpeak">${fmt(h.rev)}</div>` : ''}
+          <div class="hbar" style="height:${h.rev / niceMax * 100}%"></div>
+          <div class="htip">${hl(h.hour)}–${hl(h.hour + 1)}<b>${fmt(h.rev)}</b>${h.n} sales · ${h.items} items</div>
+        </div>`).join('')}</div>
+      <div class="hx">${span.map(h => `<span>${h.hour}</span>`).join('')}</div>
+    </div>
+    <details><summary>Show as table</summary><table style="margin-top:8px"><tr><th>Hour</th><th class="n">Sales</th><th class="n">Items</th><th class="n">Revenue</th><th class="n">Share of day</th></tr>
+      ${span.filter(h => h.n).map(h => `<tr><td>${hl(h.hour)}–${hl(h.hour + 1)}</td><td class="n">${h.n}</td><td class="n">${h.items}</td><td class="n">${fmt(h.rev)}</td><td class="n">${net ? Math.round(h.rev / net * 100) : 0}%</td></tr>`).join('') || `<tr><td colspan="5" class="muted">No sales</td></tr>`}
+    </table></details>`;
+
+  return `<div class="page">
+    <div class="toolbar">
+      <h1>Daily sales</h1>
+      <button onclick="shiftDay(-1)">‹</button>
+      <input type="date" value="${repDate}" onchange="repDate=this.value;render()">
+      <button onclick="shiftDay(1)" ${isToday ? 'disabled' : ''}>›</button>
+      ${isToday ? '' : `<button onclick="repDate=dayKey(Date.now());render()">Today</button>`}
+      <span style="flex:1"></span>
+      <button onclick="exportCSV()" ${all.length || eodFor(repDate) ? '' : 'disabled'}>Export CSV</button>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div>Revenue (net)</div><b>${fmt(net)}</b></div>
+      <div class="kpi"><div>Gross sales</div><b>${fmt(gross)}</b></div>
+      <div class="kpi"><div>Discounts given</div><b style="color:var(--disc)">${fmt(disc)}</b></div>
+      <div class="kpi"><div>Faulty products (${sum(faulty, f => f.l.faultyQty)})</div><b style="color:#ff9a9d">${fmt(faultyAmt)}</b></div>
+      <div class="kpi"><div>Transactions</div><b>${ok.length}</b></div>
+      <div class="kpi"><div>VAT included (${S.settings.vatRate ?? 0}%)</div><b>${fmt(net - exVat(net))}</b></div>
+      <div class="kpi"><div>Revenue excl. VAT</div><b>${fmt(exVat(net))}</b></div>
+      <div class="kpi"><div>Avg. ticket</div><b>${fmt(ok.length ? Math.round(net / ok.length) : 0)}</b></div>
+      <div class="kpi"><div>Items sold</div><b>${itemsSold}</b></div>
+      <div class="kpi"><div>Busiest hour</div><b>${peak ? hl(peak.hour) : '—'}</b></div>
+    </div>
+    <div class="card" style="margin-bottom:12px"><h2>Revenue by hour</h2>${hourChart}</div>
+    <div class="cards">
+      <div class="card"><h2>By category</h2><table><tr><th>Category</th><th class="n">Qty</th><th class="n">Gross</th><th class="n">Disc.</th><th class="n">Net</th></tr>
+        ${rows(sortBy(byCat, 'net'), ([k, v]) => `<tr><td><span class="dot" style="background:${catOf(v.catId)?.color || '#666'}"></span>${esc(k)}</td><td class="n">${v.qty}</td><td class="n">${fmt(v.gross)}</td><td class="n">${fmt(v.disc)}</td><td class="n">${fmt(v.net)}</td></tr>`, 'No sales')}</table></div>
+      <div class="card"><h2>Discounts used</h2><table><tr><th>Discount</th><th class="n">Times</th><th class="n">Amount</th></tr>
+        ${rows(sortBy(byDisc, 'amt'), ([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n">${fmt(v.amt)}</td></tr>`, 'No discounts')}</table></div>
+      <div class="card"><h2>Faulty products</h2><table><tr><th>Time</th><th>Item</th><th class="n">Qty</th><th class="n">Value</th><th>Reason</th><th>Signed</th></tr>
+        ${faulty.length ? faulty.map(({ s, l }) => `<tr><td>${timeStr(s.ts)}</td><td>${esc(l.name)}<div class="muted" style="font-size:12px">${esc(l.catName)} · sale #${s.no}</div></td><td class="n">${l.faultyQty}</td><td class="n">${fmt(l.disc)}</td><td style="white-space:normal">${esc(l.faultyReason)}</td><td>${esc(l.faultyBy || '—')}</td></tr>`).join('') : `<tr><td colspan="6" class="muted">No faulty products</td></tr>`}</table></div>
+      ${(() => { const e = eodFor(repDate), earlier = S.eod.filter(x => x.day === repDate).length - 1;
+        const fq = {}; faulty.forEach(({ l }) => { fq[l.name] = (fq[l.name] || 0) + l.faultyQty; });
+        const sold = n => (byFlavor[n]?.total || 0) - (fq[n] || 0), tot = f => e.counts.reduce((a, c) => a + f(c.name), 0);
+        return `<div class="card"><h2>End of day · leftover cookies</h2>${e ? `<p class="signed" style="margin:0 0 8px">Counted ${timeStr(e.ts)} · signed by <b style="color:var(--text)">${esc(e.name)}</b>${earlier > 0 ? ` · replaces ${earlier} earlier count${earlier > 1 ? 's' : ''}` : ''}</p>` : ''}
+          <table><tr><th>Cookie</th><th class="n">Sold</th><th class="n">Faulty</th><th class="n">Left over</th></tr>
+          ${e ? e.counts.map(c => `<tr><td>${esc(c.name)}</td><td class="n">${sold(c.name)}</td><td class="n">${fq[c.name] || 0}</td><td class="n"><b>${c.qty}</b></td></tr>`).join('') + `<tr><td><b>Total</b></td><td class="n"><b>${tot(sold)}</b></td><td class="n"><b>${tot(n => fq[n] || 0)}</b></td><td class="n"><b>${e.total}</b></td></tr>` : `<tr><td colspan="4" class="muted">No end of day count for this day</td></tr>`}</table></div>`; })()}
+      <div class="card"><h2>Items</h2><table><tr><th>Item</th><th>Category</th><th class="n">Qty</th><th class="n">Gross</th><th class="n">Net</th></tr>
+        ${rows(sortBy(byItem, 'qty'), ([k, v]) => `<tr><td>${esc(k.split(' · ')[0])}</td><td class="muted">${esc(v.cat)}</td><td class="n">${v.qty}</td><td class="n">${fmt(v.gross)}</td><td class="n">${fmt(v.net)}</td></tr>`, 'No items sold')}</table></div>
+      <div class="card"><h2>Cookies by flavour (singles + boxes)</h2><table><tr><th>Flavour</th><th class="n">Single</th><th class="n">In boxes</th><th class="n">Total</th></tr>
+        ${rows(sortBy(byFlavor, 'total'), ([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v.single}</td><td class="n">${v.box}</td><td class="n"><b>${v.total}</b></td></tr>`, 'No cookies sold')}</table></div>
+      <div class="card"><h2>Milk & toppings</h2><table><tr><th>Option</th><th class="n">Drinks</th><th class="n">Surcharge</th></tr>
+        ${rows(sortBy(byMilk, 'qty'), ([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v.qty}</td><td class="n">${fmt(v.amt)}</td></tr>`, 'No milk drinks')}</table></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2>Transactions</h2><table>
+      <tr><th>#</th><th>Time</th><th>Items</th><th class="n">Discount</th><th class="n">Total</th><th></th></tr>
+      ${all.length ? all.slice().reverse().map(s => `<tr class="${s.voided ? 'void' : ''}"><td>${s.no}</td><td>${timeStr(s.ts)}</td>
+        <td style="white-space:normal">${s.lines.map(l => `${l.qty}× ${esc(l.name)}${l.mods.length ? ' (' + l.mods.map(m => esc(m.name)).join(', ') + ')' : ''}${l.faultyReason ? ` <span style="color:#ff9a9d">⚠ faulty: ${esc(l.faultyReason)}</span>` : ''}`).join(', ')}</td>
+        <td class="n">${s.lineDisc + s.orderDisc ? fmt(s.lineDisc + s.orderDisc) : ''}</td><td class="n">${fmt(s.total)}</td>
+        <td><button class="sm ${s.voided ? '' : 'danger'}" onclick="toggleVoid('${s.id}')">${s.voided ? 'Restore' : 'Void'}</button></td></tr>`).join('')
+      : `<tr><td colspan="6" class="muted">No transactions on this day</td></tr>`}
+    </table></div>
+  </div>`;
+}
+function toggleVoid(id) {
+  const s = S.sales.find(x => x.id === id);
+  if (!s.voided && !confirm(`Void sale #${s.no} (${fmt(s.total)})? It will be excluded from totals.`)) return;
+  s.voided = !s.voided; save(); render();
+}
+function download(name, text, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportCSV() {
+  const q = v => `"${String(v).replace(/"/g, '""')}"`, m = v => (v / 100).toFixed(2);
+  const out = [['Date', 'Time', 'Sale #', 'Item', 'Category', 'Modifiers', 'Qty', 'Gross', 'Item discount', 'Item discount name', 'Order discount share', 'Order discount name', 'Net', 'Voided', 'Faulty qty', 'Faulty reason', 'Faulty signed by']];
+  daySales().forEach(s => s.lines.forEach(l => out.push([repDate, timeStr(s.ts), s.no, l.name, l.catName, l.mods.map(x => x.name).join('; '), l.qty, m(l.gross), m(l.disc), l.discName, m(l.odShare), s.orderDiscName, m(l.net), s.voided ? 'yes' : 'no', l.faultyQty || '', l.faultyReason || '', l.faultyBy || ''])));
+  const e = eodFor(repDate);
+  if (e) { out.push([], ['End of day leftover cookies', `Counted ${timeStr(e.ts)}`, `Signed by ${e.name}`], ['Cookie', 'Left over']); e.counts.forEach(c => out.push([c.name, c.qty])); out.push(['Total', e.total]); }
+  download(`sales-${repDate}.csv`, out.map(r => r.map(q).join(',')).join('\n'), 'text/csv');
+}
+
+/* ---------- Manage ---------- */
+function renderManage() {
+  const catOpts = sel => S.categories.map(k => `<option value="${k.id}" ${k.id === sel ? 'selected' : ''}>${esc(k.name)}</option>`).join('');
+  const money = v => (v / 100).toFixed(2);
+  return `<div class="page">
+    <div class="toolbar"><h1>Manage</h1><span class="muted">Changes save automatically.</span></div>
+    <div class="cards">
+      <div class="card"><h2>Categories</h2><table><tr><th>Name</th><th>Colour</th><th class="n">Items</th><th></th></tr>
+        ${S.categories.map(k => `<tr><td><input value="${esc(k.name)}" onchange="upd('categories','${k.id}','name',this.value)"></td>
+          <td><input type="color" value="${k.color}" onchange="upd('categories','${k.id}','color',this.value)"></td>
+          <td class="n">${S.items.filter(i => i.catId === k.id).length}</td>
+          <td><button class="sm danger" onclick="delCat('${k.id}')">✕</button></td></tr>`).join('')}
+        </table><button class="sm" style="margin-top:10px" onclick="add('categories',{name:'New category',color:'#556070'})">+ Add category</button></div>
+
+      <div class="card"><h2>Milk options</h2><table><tr><th>Name</th><th class="n">Surcharge</th><th></th></tr>
+        ${S.milks.map(x => `<tr><td><input value="${esc(x.name)}" onchange="upd('milks','${x.id}','name',this.value)"></td>
+          <td class="w"><input inputmode="decimal" value="${money(x.price)}" onchange="upd('milks','${x.id}','price',c(+this.value.replace(',','.')||0))"></td>
+          <td><button class="sm danger" onclick="del('milks','${x.id}')">✕</button></td></tr>`).join('')}
+        </table><button class="sm" style="margin-top:10px" onclick="add('milks',{name:'New milk',price:0})">+ Add milk option</button>
+        <p class="muted" style="font-size:13px">Items marked “Milk” ask for a milk choice when tapped.</p></div>
+
+      <div class="card"><h2>Quick discounts</h2><table><tr><th>Name</th><th>Type</th><th class="n">Value</th><th>Applies to</th><th></th></tr>
+        ${S.discounts.map(d => `<tr><td><input value="${esc(d.name)}" onchange="upd('discounts','${d.id}','name',this.value)"></td>
+          <td><select onchange="setDiscType('${d.id}',this.value)"><option value="pct" ${d.type === 'pct' ? 'selected' : ''}>%</option><option value="amt" ${d.type === 'amt' ? 'selected' : ''}>${esc(S.settings.currency)}</option></select></td>
+          <td class="w"><input inputmode="decimal" value="${d.type === 'pct' ? d.value : money(d.value)}" onchange="setDiscVal('${d.id}',this.value)"></td>
+          <td style="white-space:normal;min-width:140px"><details><summary>${d.cats?.length ? esc(catList(d.cats)) : 'All items'}</summary>
+            ${S.categories.map(k => `<label style="display:block;padding:2px 0"><input type="checkbox" ${d.cats?.includes(k.id) ? 'checked' : ''} onchange="toggleDiscCat('${d.id}','${k.id}',this.checked)"> ${esc(k.name)}</label>`).join('')}
+            <span class="muted" style="font-size:12px">None ticked = all items</span></details></td>
+          <td><button class="sm danger" onclick="del('discounts','${d.id}')">✕</button></td></tr>`).join('')}
+        </table><button class="sm" style="margin-top:10px" onclick="add('discounts',{name:'New discount',type:'pct',value:10})">+ Add discount</button></div>
+
+      <div class="card"><h2>Settings & data</h2>
+        <table><tr><td>Business name</td><td><input value="${esc(S.settings.name)}" onchange="S.settings.name=this.value;save();render()"></td></tr>
+        <tr><td>Currency symbol</td><td><input value="${esc(S.settings.currency)}" onchange="S.settings.currency=this.value||'CHF';save();render()"></td></tr>
+        <tr><td>VAT rate incl. in prices (%)</td><td><input inputmode="decimal" value="${S.settings.vatRate ?? 0}" onchange="S.settings.vatRate=+this.value.replace(',','.')||0;save();render()"></td></tr></table>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+          <button class="sm" onclick="backup()">Download backup</button>
+          <label class="sm" style="background:var(--panel3);border-radius:8px;padding:6px 10px;cursor:pointer">Restore backup<input type="file" accept=".json" hidden onchange="restore(this.files[0])"></label>
+          <button class="sm danger" onclick="resetAll()">Reset everything</button>
+        </div>
+        <p class="muted" style="font-size:13px">Data is stored in this browser on this device. Download a backup regularly.</p>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span class="muted" style="font-size:13px">App version ${APP_VERSION}</span>
+          <button class="sm" onclick="checkUpdate(true)">Check for update</button></div></div>
+    </div>
+
+    <div class="card" style="margin-top:12px"><h2>Items</h2><table>
+      <tr><th>Name</th><th>Category</th><th class="n">Price</th><th>Colour</th><th>Milk</th><th title="Shown in light blue on its own row below the regular items">Add-on</th><th title="Number of picks for a box/combo. Leave empty for a normal item.">Box of</th><th></th></tr>
+      ${S.categories.map(k => S.items.filter(i => i.catId === k.id).map(i => `<tr>
+        <td><input value="${esc(i.name)}" onchange="upd('items','${i.id}','name',this.value)"></td>
+        <td><select onchange="upd('items','${i.id}','catId',this.value,true)">${catOpts(i.catId)}</select></td>
+        <td class="w"><input inputmode="decimal" value="${money(i.price)}" onchange="upd('items','${i.id}','price',c(+this.value.replace(',','.')||0))"></td>
+        <td style="white-space:nowrap"><input type="color" value="${i.color || k.color}" onchange="upd('items','${i.id}','color',this.value)">${i.color ? `<button class="sm" title="Use category colour" onclick="upd('items','${i.id}','color',null,true)">↺</button>` : ''}</td>
+        <td><input type="checkbox" ${i.milk ? 'checked' : ''} onchange="upd('items','${i.id}','milk',this.checked)" style="width:20px;height:20px"></td>
+        <td><input type="checkbox" ${i.addon ? 'checked' : ''} onchange="upd('items','${i.id}','addon',this.checked)" style="width:20px;height:20px"></td>
+        <td style="width:80px"><input inputmode="numeric" placeholder="—" value="${i.combo || ''}" onchange="upd('items','${i.id}','combo',parseInt(this.value)||0,true)"></td>
+        <td><button class="sm danger" onclick="del('items','${i.id}')">✕</button></td></tr>`).join('')).join('')}
+    </table>
+    <button class="sm" style="margin-top:10px" onclick="S.categories.length?add('items',{name:'New item',price:0,catId:S.categories[0].id,milk:false}):toast('Add a category first')">+ Add item</button></div>
+  </div>`;
+}
+function upd(coll, id, key, val, rerender) { S[coll].find(x => x.id === id)[key] = val; save(); if (rerender) render(); }
+function add(coll, obj) { S[coll].push({ id: uid(), ...obj }); save(); render(); }
+function del(coll, id) { if (!confirm('Delete this entry?')) return; S[coll] = S[coll].filter(x => x.id !== id); save(); render(); }
+function delCat(id) {
+  if (S.items.some(i => i.catId === id)) return toast('Move or delete the items in this category first');
+  del('categories', id);
+}
+function toggleDiscCat(id, catId, on) {
+  const d = S.discounts.find(x => x.id === id);
+  d.cats = (d.cats || []).filter(x => x !== catId);
+  if (on) d.cats.push(catId);
+  save();
+}
+function setDiscType(id, t) { const d = S.discounts.find(x => x.id === id); if (d.type === t) return; d.type = t; d.value = t === 'pct' ? 10 : 100; save(); render(); }
+function setDiscVal(id, raw) {
+  const d = S.discounts.find(x => x.id === id), v = +raw.replace(',', '.') || 0;
+  d.value = d.type === 'pct' ? Math.min(100, Math.max(0, v)) : c(v); save(); render();
+}
+function backup() { download(`pos-backup-${dayKey(Date.now())}.json`, JSON.stringify(S, null, 1), 'application/json'); }
+function restore(file) {
+  if (!file) return;
+  file.text().then(t => { const d = JSON.parse(t); if (!d.items || !d.categories) throw 0; S = d; order = S.openOrder || newOrder(); save(); render(); toast('Backup restored'); })
+    .catch(() => toast('That file is not a valid backup'));
+}
+function resetAll() {
+  if (!confirm('Delete ALL sales and reset menu to the demo data? Download a backup first if unsure.')) return;
+  S = seed(); migrate(); order = newOrder(); activeCat = null; save(); render();
+}
+
+/* ---------- Updates: the hosted page is checked for a newer version ---------- */
+// Bump APP_VERSION with every change that gets published.
+function updateUrl(v) { return location.pathname + '?v=' + encodeURIComponent(v); }
+async function checkUpdate(manual) {
+  if (!/^https?:$/.test(location.protocol)) { if (manual) toast('Updates only work on the online version'); return; }
+  try {
+    const r = await fetch(location.pathname + '?check=' + Date.now(), { cache: 'no-store' });
+    const m = (await r.text()).match(/const APP_VERSION = '([^']+)'/);
+    if (m && m[1] !== APP_VERSION) showUpdate(m[1]);
+    else if (manual) toast('You have the latest version');
+  } catch (e) { if (manual) toast('No connection, try again later'); }
+}
+function showUpdate(v) {
+  if (document.getElementById('upd')) return;
+  const b = document.createElement('div'); b.id = 'upd'; b.className = 'upd';
+  b.innerHTML = `<span>A new version of the POS is available.</span><button class="primary" onclick="location.replace(updateUrl('${esc(v)}'))">Update now</button>`;
+  document.body.appendChild(b);
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+setInterval(checkUpdate, 5 * 60 * 1000);
+
+render();
+</script>
+</body>
+</html>
